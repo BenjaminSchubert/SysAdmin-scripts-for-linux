@@ -4,8 +4,8 @@
 from os import walk
 from os.path import join, isfile, getsize, isdir
 
-from pyDuplicate.logger import Logger
-from pyDuplicate import const
+import logger
+import const
 
 
 def tree_walk_with_size(_dir):
@@ -36,7 +36,7 @@ def order_files_by_size(weighted_files):
 def handle_bad_folders(folders, force):
     bad_folders = [x for x in folders if not isdir(x)]
     if bad_folders and not force:
-        Logger().get_logger().error(
+        logger().get_logger().error(
             "Some of the directories you gave are wrong, please check :\n {0}".format(
                 '\n '.join(map(str, bad_folders))))
         exit(1)

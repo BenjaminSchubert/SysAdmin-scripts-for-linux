@@ -34,13 +34,3 @@ class Logger:
             logger.addHandler(hand)
 
         self.__logger = logger
-
-
-def main():
-    Logger().get_logger().warn("test")
-    Logger().get_logger().warn("test1")
-    Logger().get_logger().warn("test2")
-
-
-if __name__ == "__main__":
-    main()
