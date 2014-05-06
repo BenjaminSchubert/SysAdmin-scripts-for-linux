@@ -5,14 +5,15 @@ __author__ = 'tellendil'
 
 import socket
 import threading
-from sys import stderr
+from sys import stderr, path
 from os import remove
+import configparser
 
 from gi.repository import Notify
 
 
-SOCKET_PATH = "/tmp/pyNotifier"
-TIMEOUT = 600
+CONFIG_PATH = None
+CONFIG_NAME = "/pyNotifier.conf"
 
 
 class NotifierThread(threading.Thread):
@@ -93,8 +94,34 @@ class Server():
         remove(self.socketAddress)
 
 
+def configure():
+    conf_path = None
+    config_paths = [str(CONFIG_PATH) + CONFIG_NAME, path[0].replace("bin", "etc") + CONFIG_NAME, path[0] + CONFIG_NAME]
+
+    for conf_path in config_paths:
+        try:
+            with open(conf_path, "r"):
+                break
+        except (FileNotFoundError, TypeError):
+            conf_path = None
+
+    if conf_path is None:
+        stderr.write("No configuration file found, exiting\n")
+        exit(1)
+    config = configparser.ConfigParser()
+    config.read(conf_path)
+
+    conf = {}
+    for sec in config.sections():
+        for option in config.options(sec):
+            conf[sec + "_" + option] = config.get(sec, option)
+
+    return conf
+
+
 def main():
-    server = Server(SOCKET_PATH, TIMEOUT)
+    config = configure()
+    server = Server(str(config["socket_path"]), float(config["socket_timeout"]))
     server.start()
 
 
