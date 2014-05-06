@@ -17,16 +17,18 @@ CONFIG_NAME = "/pyNotifier.conf"
 
 
 class NotifierThread(threading.Thread):
-    def __init__(self, socket):
+    def __init__(self, _socket):
         super().__init__()
-        self.socket = socket
+        self.socket = _socket
 
-    def decodeNotification(self, text):
+    @staticmethod
+    def decode_notification(text):
         keywords = ["TITLE=", "MESSAGE=", "ICON=", "URGENCY=", "TIMEOUT="]
         entries = {}
         for key in keywords:
             val = text.find(key)
-            if val >= 0: entries[val] = key
+            if val >= 0:
+                entries[val] = key
 
         order = sorted(entries.keys())
         result = {}
@@ -59,7 +61,7 @@ class NotifierThread(threading.Thread):
             else:
                 text += message.decode("UTF-8")
 
-        (title, message, icon, urgency, timeout) = self.decodeNotification(text)
+        (title, message, icon, urgency, timeout) = self.decode_notification(text)
         Notify.init(title)
         send = Notify.Notification.new(title, message, icon)
         send.set_urgency(urgency)
@@ -71,9 +73,9 @@ class Server():
     def __init__(self, file, timeout):
         super().__init__()
         self.socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        self.socketAddress = file
+        self.socket_address = file
         try:
-            self.socket.bind(self.socketAddress)
+            self.socket.bind(self.socket_address)
         except OSError:
             stderr.write("Could not bind to address {}\n".format(file))
             exit(1)
@@ -83,15 +85,15 @@ class Server():
         self.socket.listen(5)
         while True:
             try:
-                (clientSocket, address) = self.socket.accept()
-                NotifierThread(clientSocket).start()
+                (client_socket, address) = self.socket.accept()
+                NotifierThread(client_socket).start()
             except socket.timeout:
                 pass
             except KeyboardInterrupt:
                 break
 
         self.socket.close()
-        remove(self.socketAddress)
+        remove(self.socket_address)
 
 
 def configure():
