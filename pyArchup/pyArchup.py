@@ -15,11 +15,20 @@ def check_updates(command):
     if not pr.wait():
         return output.decode("UTF-8").split("\n")
     else:
-        pass
+        return ""
 
 
 def parse_packages(pa):
-    return [p.split("/")[1].split(" ")[0] for p in pa[:-1]]
+    ignored = []
+    packages = [p.split("/")[1].split(" ")[0] for p in pa[:-1]]
+
+    with open("/etc/pacman.conf", "r") as pac_conf:
+        for line in pac_conf:
+            if line.startswith("IgnorePkg"):
+                ignored = line[:-1].split(" ")[1:]
+                ignored = [i for i in ignored if i != '' and i != "="]
+
+    return [package for package in packages if package not in ignored]
 
 
 def notify_update(packages, title, icon, timeout, urgency, notifier_address):
@@ -63,13 +72,15 @@ def main():
                                         configuration["package_manager_arguments"]])
     if packages_to_update != "":
         packages = parse_packages(packages_to_update)
-        notify_update(packages, title=configuration["notification_name"],
-                      icon=configuration["notification_icon"],
-                      timeout=int(configuration["notification_timeout"]),
-                      urgency=int(configuration["notification_urgency"]),
-                      notifier_address=configuration["notification_notifier_address"])
-    else:
-        exit(0)
+
+        if len(packages) != 0:
+            notify_update(packages, title=configuration["notification_name"],
+                          icon=configuration["notification_icon"],
+                          timeout=int(configuration["notification_timeout"]),
+                          urgency=int(configuration["notification_urgency"]),
+                          notifier_address=configuration["notification_notifier_address"])
+
+    return 0
 
 
 if __name__ == "__main__":
