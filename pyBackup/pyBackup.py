@@ -17,7 +17,7 @@ from psutil import disk_usage
 
 
 CONFIG_PATH = None
-CONFIG_NAME = "/pyBackup.conf"
+CONFIG_NAME = "/pyBackup.conf.local"
 
 
 class Timer():
@@ -49,76 +49,100 @@ class Timer():
             return self.__format_time__(time_sec)
 
 
-def pre_sync(destination):
-    try:
-        shutil.rmtree(destination + "/incomplete")
-    except FileNotFoundError:
-        return 0
-    except PermissionError:
-        handle_errors(["preSyncError"], destination)
+class Syncer():
+    def __init__(self, configuration):
+        self.source = configuration["backup_source"]
+        self.destination = configuration["backup_destination"]
+        self.exclude = configuration["rsync_command_exclude"]
 
+        self.date = datetime.now().strftime(configuration["backup_date_format"])
+        self.timer = Timer()
 
-def run_rsync(rsync_command, destination, source):
-    rsync = subprocess.Popen(rsync_command, stderr=subprocess.PIPE, stdout=subprocess.DEVNULL, shell=True)
-    errors = rsync.stderr.read().decode("UTF-8")[:-1].split("\n")
-    exit_code = rsync.wait()
-    if exit_code:
-        handle_errors(errors, destination, source)
+        self.notifier_address = configuration["Notification_socket_address"]
+        self.timeout = configuration["Notification_timeout"]
 
+        self.rsync_command = " ".join([
+            "rsync",
+            "-aAXHP",
+            "--link-dest=" + self.destination + "/current",
+            "--exclude={" + self.exclude + "}",
+            self.source,
+            self.destination + "/incomplete"
+        ])
 
-def post_sync(destination, date):
-    os.rename(destination + "/incomplete", destination + "/" + date)
-    try:
-        os.remove(destination + "/current")
-    except FileNotFoundError:
-        pass
-    os.symlink(destination + "/" + date, destination + "/current")
+    def run(self):
+        self.timer.start_timer()
+        self.pre_sync()
+        self.sync()
+        self.post_sync()
+        self.notify_end()
 
+    def pre_sync(self):
+        try:
+            shutil.rmtree(self.destination + "/incomplete")
+        except FileNotFoundError:
+            return 0
+        except PermissionError:
+            self.handle_errors(["preSyncError"])
 
-def notify_end(destination, timeout, notifier_address, _time):
-    space_left = 100 - disk_usage(destination)[3]
-    message = "Backup finished successfully !\nIt took {timeElapsed}.\n\nSpace left on disk : {space}%".format(
-        timeElapsed=_time, space=space_left)
-    title = "backup.py"
-    timeout = timeout
-    urgency = 1
-    if space_left > 30:
-        icon = "security-high"
-    elif space_left > 15:
-        icon = "security-low"
-    else:
-        icon = "software-update-urgent"
+    def sync(self):
+        rsync = subprocess.Popen(self.rsync_command, stderr=subprocess.PIPE, stdout=subprocess.DEVNULL, shell=True)
+        errors = rsync.stderr.read().decode("UTF-8")[:-1].split("\n")
+        exit_code = rsync.wait()
+        if exit_code:
+            self.handle_errors(errors)
 
-    send = "TITLE={} MESSAGE={} ICON={} TIMEOUT={} URGENCY={}".format(title, message, icon, timeout, urgency)
-
-    my_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    my_socket.connect(notifier_address)
-    my_socket.send(send.encode("UTF-8"))
-
-
-def handle_errors(errors, destination, source=None):
-    for e in errors:
-        if "file has vanished" in e:
+    def post_sync(self):
+        os.rename(self.destination + "/incomplete", self.destination + "/" + self.date)
+        try:
+            os.remove(self.destination + "/current")
+        except FileNotFoundError:
             pass
-        elif "link_stat" in e and "No such file or directory (2)" in e:
-            stderr.write("The source \"" + source + "\" doesn't exists\n")
-            exit(1)
-        elif "opendir" in e and "Permission denied (13)" in e:
-            stderr.write("The source \"" + source + "\" is not readable\n")
-            exit(2)
-        elif "mkdir" in e and "failed" in e and "No such file or directory (2)" in e:
-            stderr.write("The destination folder \"" + destination + "\" doesn't exists\n")
-            exit(4)
-        elif "ERROR: cannot stat destination" in e and "Permission denied (13)" in e:
-            stderr.write("The destination folder \"" + destination + "\" is not writeable\n")
-            exit(8)
-        elif "preSyncError" in e:
-            stderr.write("Cannot remove \"" + destination + "/incomplete\", aborting.\n")
-            exit(16)
+        os.symlink(self.destination + "/" + self.date, self.destination + "/current")
+
+    def notify_end(self):
+        space_left = 100 - disk_usage(self.destination)[3]
+        message = "Backup finished successfully !\nIt took {timeElapsed}.\n\nSpace left on disk : {space}%".format(
+            timeElapsed=self.timer.elapsed_time(), space=space_left)
+        title = "backup.py"
+        timeout = self.timeout
+        urgency = 1
+        if space_left > 30:
+            icon = "security-high"
+        elif space_left > 15:
+            icon = "security-low"
         else:
-            stderr.write("An unexpected error occurred. Please contact developer\n")
-            stderr.write(e + "\n")
-            exit(-1)
+            icon = "software-update-urgent"
+
+        send = "TITLE={} MESSAGE={} ICON={} TIMEOUT={} URGENCY={}".format(title, message, icon, timeout, urgency)
+
+        my_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        my_socket.connect(self.notifier_address)
+        my_socket.send(send.encode("UTF-8"))
+
+    def handle_errors(self, errors):
+        for e in errors:
+            if "file has vanished" in e:
+                pass
+            elif "link_stat" in e and "No such file or directory (2)" in e:
+                stderr.write("The source \"" + self.source + "\" doesn't exists\n")
+                exit(1)
+            elif "opendir" in e and "Permission denied (13)" in e:
+                stderr.write("The source \"" + self.source + "\" is not readable\n")
+                exit(2)
+            elif "mkdir" in e and "failed" in e and "No such file or directory (2)" in e:
+                stderr.write("The destination folder \"" + self.destination + "\" doesn't exists\n")
+                exit(4)
+            elif "ERROR: cannot stat destination" in e and "Permission denied (13)" in e:
+                stderr.write("The destination folder \"" + self.destination + "\" is not writeable\n")
+                exit(8)
+            elif "preSyncError" in e:
+                stderr.write("Cannot remove \"" + self.destination + "/incomplete\", aborting.\n")
+                exit(16)
+            else:
+                stderr.write("An unexpected error occurred. Please contact developer\n")
+                stderr.write(e + "\n")
+                exit(-1)
 
 
 def configure():
@@ -146,30 +170,10 @@ def configure():
     return conf
 
 
-def format_rsync_command(destination, source, exclude):
-    rsync_command = " ".join([
-        "rsync",
-        "-aAXHP",
-        "--link-dest=" + destination + "/current",
-        "--exclude={" + exclude + "}",
-        source,
-        destination + "/incomplete"
-    ])
-    return rsync_command
-
-
 def main():
     configuration = configure()
-    rsync_command = format_rsync_command(configuration["backup_destination"], configuration["backup_source"],
-                                         configuration["rsync_command_exclude"])
-    date = datetime.now().strftime(configuration["backup_date_format"])
-    t = Timer()
-    t.start_timer()
-    pre_sync(configuration["backup_destination"])
-    run_rsync(rsync_command, configuration["backup_destination"], configuration["backup_source"])
-    post_sync(configuration["backup_destination"], date)
-    notify_end(configuration["backup_destination"], configuration["Notification_timeout"],
-               configuration["Notification_socket_address"], t.elapsed_time())
+    syncer = Syncer(configuration)
+    syncer.run()
 
 
 if __name__ == "__main__":
