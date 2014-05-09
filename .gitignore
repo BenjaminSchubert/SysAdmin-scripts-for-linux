@@ -56,3 +56,4 @@ docs/_build/
 #by me
 *.local
 test/
+*.test

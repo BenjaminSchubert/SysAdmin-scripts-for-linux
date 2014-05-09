@@ -17,7 +17,7 @@ from psutil import disk_usage
 
 
 CONFIG_PATH = None
-CONFIG_NAME = "/pyBackup.conf.local"
+CONFIG_NAME = "/pyBackup.conf.test"
 
 
 class Timer():
