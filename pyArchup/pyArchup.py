@@ -5,6 +5,7 @@ import socket
 import configparser
 from sys import stderr, path
 
+PKG_VERSION = 0.1
 CONFIG_PATH = None
 CONFIG_NAME = "/pyArchup.conf"
 
