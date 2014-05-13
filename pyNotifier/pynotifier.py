@@ -1,6 +1,10 @@
 #!/usr/bin/python3
-#!Coding: UTF-8
+# -*- coding: utf-8 -*-
 
+"""
+This scripts creates a server waiting to read from a socket.
+When something arrives, it parses it and displays it on the desktop
+"""
 __author__ = 'tellendil'
 
 import socket
@@ -13,16 +17,26 @@ from gi.repository import Notify
 
 
 CONFIG_PATH = None
-CONFIG_NAME = "/pyNotifier.conf"
+CONFIG_NAME = "/pynotifier.conf"
 
 
 class NotifierThread(threading.Thread):
+    """
+    This Class extends threading.thread to read on a server. It parses the result and shows it
+    """
+
     def __init__(self, _socket):
         super().__init__()
         self.socket = _socket
 
     @staticmethod
     def decode_notification(text):
+        """
+        This decodes the notification
+        Keywords searched are : "TITLE="; "MESSAGE=";"ICON=";"URGENCY=";"TIMEOUT="
+        :param text: the string to decode and display
+        :return: the parsed text
+        """
         keywords = ["TITLE=", "MESSAGE=", "ICON=", "URGENCY=", "TIMEOUT="]
         entries = {}
         for key in keywords:
@@ -52,6 +66,9 @@ class NotifierThread(threading.Thread):
             result["URGENCY="]), int(result["TIMEOUT="])
 
     def run(self):
+        """
+        Reads the text incoming, decodes it and shows it
+        """
         finished = False
         text = ""
         while not finished:
@@ -70,6 +87,10 @@ class NotifierThread(threading.Thread):
 
 
 class Server():
+    """
+    This is the server. It opens a socket, wait for a connection and create a new NotifierThread to handle it
+    """
+
     def __init__(self, file, timeout):
         super().__init__()
         self.socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -82,10 +103,13 @@ class Server():
         self.socket.settimeout(timeout)
 
     def start(self):
+        """
+        Starts the server
+        """
         self.socket.listen(5)
         while True:
             try:
-                (client_socket, address) = self.socket.accept()
+                (client_socket, _) = self.socket.accept()
                 NotifierThread(client_socket).start()
             except socket.timeout:
                 pass
@@ -97,6 +121,10 @@ class Server():
 
 
 def configure():
+    """
+    Reads the configuration file and parses it
+    :return a dictionnary containing everything found in the configuration file
+    """
     conf_path = None
     config_paths = [str(CONFIG_PATH) + CONFIG_NAME, path[0].replace("bin", "etc") + CONFIG_NAME, path[0] + CONFIG_NAME]
 
@@ -122,6 +150,9 @@ def configure():
 
 
 def main():
+    """
+    Reads the configuration, and launch the server
+    """
     config = configure()
     server = Server(str(config["socket_path"]), float(config["socket_timeout"]))
     server.start()
