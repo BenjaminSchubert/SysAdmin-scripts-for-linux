@@ -1,5 +1,11 @@
 #!/usr/bin/python3
-#!Coding: UTF-8
+# -*- coding: utf-8 -*-
+
+#TODO change this in a configuration file
+
+"""
+This contains several configuration constants to avoid having a configuration file (may be done later on)
+"""
 
 import logging
 import sys

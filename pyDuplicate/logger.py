@@ -1,5 +1,9 @@
 #!/usr/bin/python3
-#!Coding: UTF-8
+# -*- coding: utf-8 -*-
+
+"""
+This contains a class to create a simple logger to use for notification
+"""
 
 import logging
 import logging.config
@@ -11,19 +15,25 @@ __author__ = 'tellendil'
 
 
 class Logger:
+    """
+    This is a singleton class used to send logger informations on different places
+    """
     __instance = None
 
     def __new__(cls):
         if Logger.__instance is None:
             Logger.__instance = object.__new__(cls)
-            Logger.__instance.__configLogger__()
+            Logger.__instance.__config_logger__()
         return Logger.__instance
 
     @staticmethod
     def get_logger():
+        """
+        returns the logger configured
+        """
         return Logger.__instance.__logger
 
-    def __configLogger__(self):
+    def __config_logger__(self):
         logger = logging.getLogger(const.LOGGER)
         logger.setLevel(const.LOGGER_LEVEL)
 

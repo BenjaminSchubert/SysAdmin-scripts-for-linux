@@ -1,6 +1,10 @@
 #!/usr/bin/python3
 #! coding: UTF-8
 
+"""
+This is the main script for the module. It puts everything together
+"""
+
 from argparse import ArgumentParser
 import sys
 
@@ -11,6 +15,10 @@ import logger
 
 
 def parse():
+    """
+    Creates a parser for command lines attributes and parses them
+    :return: folders, force, handle_hard_links, exclude_dir, exclude_extension
+    """
     parser = ArgumentParser(description="a duplicate file finder and processor")
     parser.add_argument('-f', '--force', action="store_true", dest='force', help="Use this do disable interactive mode.\
      If used, the program will ignore any errors, be careful")
@@ -25,6 +33,11 @@ def parse():
 
 
 def process_duplicates(worker):
+    """
+    Creates a KeyboardInterrupt handler on top of the process processing the files. It asks if the user is sure to quit
+    before effectively stopping the script
+    :param worker: the thread to wait on
+    """
     try:
         worker.join()
     except KeyboardInterrupt:
@@ -38,6 +51,11 @@ def process_duplicates(worker):
 
 
 def treat(folders, handle_hard_links):
+    """
+    This creates the logger, lists all files to check and search for duplicates
+    :param folders: the folders in which to search files
+    :param handle_hard_links: if yes or no two files hardlinked are to be treated are duplicates or no
+    """
     logger.Logger().get_logger().info("Listing all Files")
     all_files = []
     for directory in folders:
@@ -56,6 +74,9 @@ def treat(folders, handle_hard_links):
 
 
 def main():
+    """
+    Parses the command line, check if folders are valid and check for duplicates. print them
+    """
     (folders, force, handle_hard_links, exclude_dirs, exclude_extensions) = parse()
 
     if exclude_dirs is not None:
