@@ -1,3 +1,5 @@
+**THIS PROJECT IS UNMAINTAINED, I HAVE STOPPED USING IT**
+
 SysAdmin-scripts-for-linux
 ==========================
 
